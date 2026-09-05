@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools", "cython"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PetFil"
+description = "Host software for a PET bottle filament maker"
+license = { file = "COPYING" }
+authors = [
+    {name = "Kliment Yanev"},
+    {name = "Guillaume Seguin"},
+]
+# PetFil is a fork of Printrun (https://github.com/kliment/Printrun).
+readme = "README.md"
+requires-python=">=3.8"
+classifiers=[
+    "Environment :: X11 Applications :: GTK",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Manufacturing",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Printing",
+]
+dynamic = [  # these variables are dynamically set at `setup.py`
+    "version",
+    "scripts",
+    "dependencies",
+]
+
+[project.urls]
+Homepage = "https://github.com/kliment/Printrun/"
+Issues = "https://github.com/kliment/Printrun/issues"
+Changelog = "https://github.com/kliment/Printrun/blob/master/NEWS.md"
+
+[tool.setuptools]
+include-package-data = false
