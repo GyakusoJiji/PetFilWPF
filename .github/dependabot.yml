@@ -6,8 +6,8 @@ updates:
       interval: "weekly"
       day: "thursday"
 
-  - package-ecosystem: "pip"
-    directory: "/"  # location of `requirements.txt` and/or `pyproject.toml`
+  - package-ecosystem: "nuget"
+    directory: "/"  # location of `PetFil.sln`
     schedule:
       interval: "weekly"
       day: "thursday"
