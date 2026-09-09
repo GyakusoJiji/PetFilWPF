@@ -1,4 +1,4 @@
-<Window x:Class="PetFil.Wpf.MainWindow"
+﻿<Window x:Class="PetFil.Wpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PET フィラメントメーカー" Height="600" Width="900">
@@ -60,6 +60,15 @@
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                     <Button x:Name="StartWinderButton" Content="運転開始" Width="80" Click="StartWinderButton_Click" />
                     <Button x:Name="StopWinderButton" Content="停止" Width="80" Margin="6,0,0,0" Click="StopWinderButton_Click" />
+                </StackPanel>
+                <TextBlock Margin="0,0,0,4" Foreground="Gray">押している間だけ設定速度の10倍で回します</TextBlock>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <Button x:Name="JogForwardButton" Content="正転 ×10" Width="80"
+                            PreviewMouseLeftButtonDown="JogForwardButton_MouseDown"
+                            LostMouseCapture="JogButton_LostMouseCapture" />
+                    <Button x:Name="JogReverseButton" Content="逆転 ×10" Width="80" Margin="6,0,0,0"
+                            PreviewMouseLeftButtonDown="JogReverseButton_MouseDown"
+                            LostMouseCapture="JogButton_LostMouseCapture" />
                 </StackPanel>
                 <TextBlock x:Name="WinderLabel">停止中　積算 0.0 mm</TextBlock>
 

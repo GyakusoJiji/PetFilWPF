@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO.Ports;
@@ -23,6 +23,11 @@ namespace PetFil.Wpf
         public const double ChunkOverlap = 1.2;
         public const int MaxQueueDepth = 2;
         public const double TempPollSec = 2.0;
+
+        // 巻き取り機構は X の正方向とは逆に回るので、送り出す G1 の符号を反転する。
+        public const int WindSign = -1;
+        // 正転・逆転ボタンは設定速度のこの倍率で回す。
+        public const double JogSpeedFactor = 10.0;
 
         // Marlin resets when DTR is asserted on open; nothing sent while the
         // bootloader runs is executed, so wait it out before the handshake.
@@ -64,6 +69,15 @@ namespace PetFil.Wpf
         public double WinderSpeed { get; set; } = 300.0;
         public double WinderTotalMm { get; private set; }
 
+        /// <summary>True while a jog button drives the motor at <see cref="JogSpeedFactor"/> x the set speed.</summary>
+        public bool IsJogging { get; private set; }
+
+        /// <summary>+1 while winding in, -1 while running the mechanism backwards.</summary>
+        public int WinderDirection { get; private set; } = 1;
+
+        /// <summary>Speed the current movement runs at; jogging multiplies the set speed.</summary>
+        public double ActiveSpeed => IsJogging ? WinderSpeed * JogSpeedFactor : WinderSpeed;
+
         public bool IsConnected => port != null && port.IsOpen;
 
         /// <summary>
@@ -80,6 +94,17 @@ namespace PetFil.Wpf
         public static double WinderChunkMm(double speedMmPerMin, double seconds = ChunkSec, double overlap = ChunkOverlap)
         {
             return Math.Max(0.0, speedMmPerMin) / 60.0 * seconds * overlap;
+        }
+
+        /// <summary>
+        /// Signed X displacement of a single chunk. <paramref name="direction"/> is +1 to
+        /// wind filament in and -1 to run backwards; <see cref="WindSign"/> maps that onto
+        /// the axis, which turns the opposite way from positive X.
+        /// </summary>
+        public static double WinderMoveMm(double speedMmPerMin, int direction,
+            double seconds = ChunkSec, double overlap = ChunkOverlap)
+        {
+            return WinderChunkMm(speedMmPerMin, seconds, overlap) * direction * WindSign;
         }
 
         /// <summary>
@@ -414,12 +439,28 @@ namespace PetFil.Wpf
         public void StartWinder(double? speed = null)
         {
             if (speed is not null) WinderSpeed = speed.Value;
+            StartMotion(direction: 1, jogging: false);
+        }
+
+        /// <summary>
+        /// Runs the motor at <see cref="JogSpeedFactor"/> x the set speed while a jog
+        /// button is held. <paramref name="forward"/> is the winding direction.
+        /// </summary>
+        public void StartJog(bool forward)
+        {
+            StartMotion(forward ? 1 : -1, jogging: true);
+        }
+
+        private void StartMotion(int direction, bool jogging)
+        {
             if (IsWinding) return;
             if (!IsOnline)
             {
                 Log("プリンタがまだオンラインではありません。");
                 return;
             }
+            WinderDirection = direction;
+            IsJogging = jogging;
             SendCommand("M211 S0");
             SendCommand("G91");
             IsWinding = true;
@@ -436,11 +477,13 @@ namespace PetFil.Wpf
         {
             if (!IsWinding || !IsOnline) return;
             if ((sendQueue?.Count ?? 0) >= MaxQueueDepth) return;
-            var chunk = WinderChunkMm(WinderSpeed);
+            var speed = ActiveSpeed;
+            var move = WinderMoveMm(speed, WinderDirection);
             // G92 X0 keeps the relative moves anchored, as in _winder_tick.
             Enqueue("G92 X0");
-            Enqueue(string.Format(CultureInfo.InvariantCulture, "G1 X{0:0.000} F{1:0.0}", chunk, WinderSpeed));
-            WinderTotalMm += chunk;
+            Enqueue(string.Format(CultureInfo.InvariantCulture, "G1 X{0:0.000} F{1:0.0}", move, speed));
+            // 積算は巻き取り方向を正とするので、逆転の分は差し引く。
+            WinderTotalMm += WinderChunkMm(speed) * WinderDirection;
             OnWinderChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -454,9 +497,17 @@ namespace PetFil.Wpf
             winderTimer?.Dispose();
             winderTimer = null;
             IsWinding = false;
+            IsJogging = false;
+            WinderDirection = 1;
             SendCommand("G90");
             SendCommand("M211 S1");
             OnWinderChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Stops a jog started by <see cref="StartJog"/>, leaving normal winding alone.</summary>
+        public void StopJog()
+        {
+            if (IsJogging) StopWinder();
         }
 
         public void SetTemperature(double temp)

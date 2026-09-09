@@ -1,4 +1,4 @@
-// Ported from the original Python test suite:
+﻿// Ported from the original Python test suite:
 // tests/test_petfil_controller.py (TestPureHelpers, TestTemperatureParsing)
 // in the "Pet Bottle Recycler" repository. Only the toolkit-independent
 // (non-serial) logic is covered here, mirroring what those Python tests
@@ -16,6 +16,21 @@ public class PetFilControllerPureHelperTests
         // 300 mm/min is 5 mm/s, and a 1 s chunk overlaps by 20%.
         Assert.Equal(6.0, PetFilController.WinderChunkMm(300), 3);
         Assert.Equal(12.0, PetFilController.WinderChunkMm(600), 3);
+    }
+
+    [Fact]
+    public void WindingMovesTheAxisInTheNegativeDirection()
+    {
+        // 巻き取りは X の負方向、逆転は正方向。
+        Assert.Equal(-6.0, PetFilController.WinderMoveMm(300, 1), 3);
+        Assert.Equal(6.0, PetFilController.WinderMoveMm(300, -1), 3);
+    }
+
+    [Fact]
+    public void JogRunsAtTenTimesTheSetSpeed()
+    {
+        Assert.Equal(10.0, PetFilController.JogSpeedFactor, 3);
+        Assert.Equal(-60.0, PetFilController.WinderMoveMm(300 * PetFilController.JogSpeedFactor, 1), 3);
     }
 
     [Fact]

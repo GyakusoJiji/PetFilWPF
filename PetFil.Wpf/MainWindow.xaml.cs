@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
@@ -134,7 +134,13 @@ namespace PetFil.Wpf
             Dispatcher.Invoke(() =>
             {
                 if (controller is null) return;
-                var status = controller.IsWinding ? "運転中" : "停止中";
+                var status = controller switch
+                {
+                    { IsJogging: true, WinderDirection: > 0 } => "正転（高速）",
+                    { IsJogging: true } => "逆転（高速）",
+                    { IsWinding: true } => "運転中",
+                    _ => "停止中",
+                };
                 WinderLabel.Text = $"{status}　積算 {controller.WinderTotalMm:0.0} mm";
             });
         }
@@ -188,6 +194,30 @@ namespace PetFil.Wpf
         private void StopWinderButton_Click(object sender, RoutedEventArgs e)
         {
             controller?.StopWinder();
+        }
+
+        // 正転・逆転は押している間だけ動かす。ボタンは押下でマウスをキャプチャするので、
+        // 離したときもポインタが外れたときも LostMouseCapture で確実に止まる。
+        private void JogForwardButton_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            StartJog(true);
+        }
+
+        private void JogReverseButton_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            StartJog(false);
+        }
+
+        private void StartJog(bool forward)
+        {
+            if (controller is null) return;
+            if (double.TryParse(SpeedTextBox.Text, out var speed)) controller.WinderSpeed = speed;
+            controller.StartJog(forward);
+        }
+
+        private void JogButton_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            controller?.StopJog();
         }
 
         private void SetTempButton_Click(object sender, RoutedEventArgs e)
