@@ -527,6 +527,78 @@ namespace PetFil.Wpf
             if (IsJogging) StopWinder();
         }
 
+        /// <summary>
+        /// 非常停止。巻き取りを止め、送信待ちの移動を捨て、M410 で先読み済みの移動も
+        /// 打ち切ってヒーターを切る。M410 と M104 S0 は "ok" 待ちを通さず直接書く -
+        /// 送信ループが応答待ちで止まっていても届かせる必要があるため。
+        /// </summary>
+        public void EmergencyStop()
+        {
+            winderTimer?.Dispose();
+            winderTimer = null;
+            IsWinding = false;
+            IsJogging = false;
+            WinderDirection = 1;
+
+            var dropped = DrainQueue();
+            if (IsConnected)
+            {
+                WriteDirect("M410");
+                WriteDirect("M104 S0");
+            }
+            TargetTemp = 0;
+
+            // 相対座標のまま止まっているので、通常の座標系に戻しておく。
+            // 未接続なら送る先が無いだけで、非常停止そのものは成立する。
+            if (IsOnline)
+            {
+                SendCommand("G90");
+                SendCommand("M120");
+                SendCommand("M211 S1");
+            }
+
+            Log($"非常停止しました。（送信待ちの移動 {dropped} 件を破棄）");
+            OnWinderChanged?.Invoke(this, EventArgs.Empty);
+            OnTempUpdated?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// M112 を直接送ってファームウェアそのものを止める。Marlin はリセットするまで
+        /// 停止したままになるので、通常の非常停止で足りないときの最後の手段。
+        /// </summary>
+        public void Halt()
+        {
+            winderTimer?.Dispose();
+            winderTimer = null;
+            IsWinding = false;
+            IsJogging = false;
+            WinderDirection = 1;
+
+            DrainQueue();
+            if (!IsConnected)
+            {
+                Log("未接続のため送信できません。");
+                return;
+            }
+            WriteDirect("M112");
+            // 停止したファームウェアは応答を返さない。
+            IsOnline = false;
+            tempTimer?.Dispose();
+            tempTimer = null;
+            TargetTemp = 0;
+            Log("M112 を送信しました。復帰するには「リセット」を押してください。");
+            OnWinderChanged?.Invoke(this, EventArgs.Empty);
+            OnTempUpdated?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>送信待ちのコマンドを捨て、捨てた件数を返す。</summary>
+        private int DrainQueue()
+        {
+            var dropped = 0;
+            while (sendQueue is { IsAddingCompleted: false } && sendQueue.TryTake(out _)) dropped++;
+            return dropped;
+        }
+
         public void SetTemperature(double temp)
         {
             TargetTemp = temp;

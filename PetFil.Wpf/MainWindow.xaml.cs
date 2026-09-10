@@ -224,6 +224,18 @@ namespace PetFil.Wpf
             controller?.Reset();
         }
 
+        // 非常停止は左クリックが通常停止、右クリックが M112 による強制停止。
+        // 咄嗟に押すものなので確認ダイアログは挟まない。
+        private void EmergencyStopButton_Click(object sender, RoutedEventArgs e)
+        {
+            controller?.EmergencyStop();
+        }
+
+        private void EmergencyStopButton_RightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            controller?.Halt();
+        }
+
         private void StartWinderButton_Click(object sender, RoutedEventArgs e)
         {
             if (double.TryParse(SpeedTextBox.Text, out var speed))

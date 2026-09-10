@@ -16,6 +16,14 @@
             <Button x:Name="ConnectButton" Content="接続" Width="90" Click="ConnectButton_Click"/>
             <Button x:Name="RescanButton" Content="再スキャン" Width="90" Margin="6,0,0,0" Click="RescanButton_Click"/>
             <Button x:Name="ResetButton" Content="リセット" Width="90" Margin="6,0,0,0" Click="ResetButton_Click"/>
+            <Button x:Name="EmergencyStopButton" Content="非常停止" Width="110" Margin="24,0,0,0"
+                    Background="#C62828" Foreground="White" FontWeight="Bold"
+                    Click="EmergencyStopButton_Click"
+                    MouseRightButtonUp="EmergencyStopButton_RightClick">
+                <Button.ToolTip>
+                    クリック: 巻き取りを止め、送信待ちの移動を破棄してヒーターを OFF&#x0a;右クリック: M112 でファームウェアごと停止（復帰にはリセットが必要）
+                </Button.ToolTip>
+            </Button>
         </StackPanel>
 
         <Grid Grid.Row="1">
