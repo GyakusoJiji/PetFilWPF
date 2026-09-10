@@ -1,8 +1,0 @@
-include COPYING
-include README.*
-include buildinstructions.md
-include release_windows.bat
-include requirements.txt
-include assets_raw/icons/*.png
-include assets_raw/icons/*.ico
-recursive-include printrun *.pyx

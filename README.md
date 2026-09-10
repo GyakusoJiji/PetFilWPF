@@ -1,4 +1,4 @@
-# PetFil — PET ボトル・フィラメント製造機コントローラ
+﻿# PetFil — PET ボトル・フィラメント製造機コントローラ
 
 PET ボトルからフィラメントを作る押出・巻き取り機を、PC から操作するためのホストアプリケーションです。
 [Printrun / Pronterface](https://github.com/kliment/Printrun) のフォークで、シリアル通信の中核（`printcore`）と温度グラフのウィジェットをそのまま流用し、
@@ -28,91 +28,54 @@ PET ボトルからフィラメントを作る押出・巻き取り機を、PC �
 Marlin には「一定速度で回し続ける」コマンドがないため、相対移動（`G91` + `G1 X…`）の短い区間を 1 秒周期で投入し続けます。
 1 区間の長さは 1 周期分より 20% 長く取り、モーションが途切れないようにしています。
 送りすぎを防ぐため、`printcore` の優先キューに 3 件以上溜まっている間は投入を止めます（キュー深度による自己ペーシング）。
-`M211 S0` でソフトウェアエンドストップを無効にし、毎区間 `G92 X0` で座標をリセットするため、長時間運転しても座標が発散しません。
+`M211 S0` と `M121` でソフト/ハード両方のエンドストップ判定を止め、毎区間 `G92` で座標をリセットするため、長時間運転しても座標が発散しません。
+巻き取り方向は X の負側なので、区間ごとに移動量ぶんずらした位置を原点にして、移動先がちょうど 0 になるようにしています（負の座標はファームウェアに切り捨てられるため）。
 
-## インストールと実行
+## ビルドと実行
 
-Python 3.8〜3.13 に対応（wxPython の対応状況に依存）。
-
-### Windows
+.NET 8 SDK が必要です（実行だけなら .NET 8 デスクトップランタイム）。
 
 ```cmd
 > git clone <このリポジトリ>
-> cd PetBottleFirament
-> release_windows.bat
+> cd "Pet Bottle Recycler WPF"
+> dotnet build PetFil.sln -c Release
+> PetFil.Wpfin\Release
+et8.0-windows\PetFil.Wpf.exe
 ```
 
-手動で環境を作る場合:
+開発中は `dotnet run --project PetFil.Wpf` でそのまま起動できます。
+ランタイムを同梱した単体の exe が要る場合:
 
 ```cmd
-> py -3.11 -m venv v3
-> v3\Scripts\activate
-> pip install --upgrade pip setuptools wheel
-> pip install cython -r requirements.txt
-> python setup.py build_ext --inplace
-> python petfil.py
+> dotnet publish PetFil.Wpf/PetFil.Wpf.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
 
-`setup.py build_ext` には MSVC の C++ ビルドツールと Windows SDK が必要です。
-未インストールでも動作しますが、G-code パーサが純 Python 実装にフォールバックし、やや遅くなります。
+### 設定の保存
 
-### Linux / macOS
+目標温度と巻き取り速度は `%APPDATA%\PetFil\settings.json` に保存されます。
 
-```shell
-$ python3 -m venv venv && . ./venv/bin/activate
-(venv) $ pip install --upgrade pip setuptools
-(venv) $ pip install cython -r requirements.txt
-(venv) $ python setup.py build_ext --inplace
-(venv) $ python petfil.py
-```
+- `Last` — 終了時に自動で記録され、次回起動時の初期値になります
+- `Saved` — 「保存」ボタンを押したときだけ更新されます。「呼び出し」で入力欄に戻せます
 
-### 起動オプション
-
-```
-petfil [OPTIONS]
-
-  -h, --help          このヘルプを表示して終了
-  -V, --version       バージョンを表示して終了
-  -v, --verbose       ログを詳細にする
-  -p, --port=PORT     シリアルポート、または host:port を初期選択
-  -a, --autoconnect   起動時に自動接続する
-```
-
-設定（ポート・ボーレート・目標温度・巻き取り速度・ウィンドウサイズ）は
-`platformdirs` のユーザー設定ディレクトリ配下 `PetFil/config.json` に保存されます。
-
-## 実機なしで試す
-
-`tools/fake_marlin.py` が Marlin の応答を模した TCP サーバとして動きます。
-
-```shell
-$ python tools/fake_marlin.py --port 8080
-$ python petfil.py --port 127.0.0.1:8080 --autoconnect
-```
-
-ヒーターは目標温度に向かって毎秒 8 °C ずつ上昇し、`M155` の自動レポートにも応答します。
+「呼び出し」は入力欄に値を入れるだけで、プリンタには送りません。温度は「設定」ボタンで反映してください。
 
 ## テスト
 
-```shell
-$ python -m unittest discover tests
+```cmd
+> dotnet test PetFil.sln
 ```
 
-`printrun/petfil/controller.py` は GUI ツールキットを import しないため、
-wxPython なしの環境でもロジックのテストが実行できます。
+`PetFilController` と `AppSettings` は WPF に依存しないため、シリアルポートや画面なしでロジックを検証できます。
 
 ## 構成
 
 ```
-petfil.py                     ランチャ
-printrun/petfil/
-    controller.py             機械ロジック（wx 非依存）— 接続・温度・巻き取り・非常停止
-    gui.py                    wxPython の画面
-    config.py                 JSON 設定
-printrun/printcore.py         シリアル/TCP 通信エンジン（upstream Printrun 由来）
-printrun/gui/graph.py         温度グラフ（upstream Printrun 由来）
-tools/fake_marlin.py          実機なし検証用の擬似ファームウェア
-tests/                        unittest
+PetFil.sln
+PetFil.Wpf/
+    PetFilController.cs       機械ロジック — 接続・温度・巻き取り（UI 非依存）
+    AppSettings.cs            settings.json の読み書き
+    MainWindow.xaml(.cs)      画面
+PetFil.Wpf.Tests/             xUnit のテスト
 ```
 
 # LICENSE
