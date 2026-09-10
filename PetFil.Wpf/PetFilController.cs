@@ -108,6 +108,18 @@ namespace PetFil.Wpf
         }
 
         /// <summary>
+        /// Logical X position to declare with G92 before a chunk of
+        /// <paramref name="moveMm"/>. A negative move from X0 would end up below the
+        /// axis minimum, where the firmware silently clamps it to zero and the motor
+        /// never turns, so a backwards chunk is anchored at its own length and lands
+        /// exactly on zero instead.
+        /// </summary>
+        public static double WinderAnchorMm(double moveMm)
+        {
+            return moveMm < 0.0 ? -moveMm : 0.0;
+        }
+
+        /// <summary>
         /// True for lines that carry nothing but a temperature report.
         /// Ported from printrun/petfil/controller.py is_temperature_report().
         /// </summary>
@@ -462,6 +474,9 @@ namespace PetFil.Wpf
             WinderDirection = direction;
             IsJogging = jogging;
             SendCommand("M211 S0");
+            // 巻き取り軸に X の原点スイッチはないので、押されっぱなしの MIN エンドストップに
+            // 逆方向の移動を止められないようハード側の判定も切っておく。
+            SendCommand("M121");
             SendCommand("G91");
             IsWinding = true;
             OnWinderChanged?.Invoke(this, EventArgs.Empty);
@@ -479,8 +494,9 @@ namespace PetFil.Wpf
             if ((sendQueue?.Count ?? 0) >= MaxQueueDepth) return;
             var speed = ActiveSpeed;
             var move = WinderMoveMm(speed, WinderDirection);
-            // G92 X0 keeps the relative moves anchored, as in _winder_tick.
-            Enqueue("G92 X0");
+            // G92 keeps the relative moves anchored, as in _winder_tick, but the anchor
+            // has to leave room for a backwards chunk so X never goes negative.
+            Enqueue(string.Format(CultureInfo.InvariantCulture, "G92 X{0:0.000}", WinderAnchorMm(move)));
             Enqueue(string.Format(CultureInfo.InvariantCulture, "G1 X{0:0.000} F{1:0.0}", move, speed));
             // 積算は巻き取り方向を正とするので、逆転の分は差し引く。
             WinderTotalMm += WinderChunkMm(speed) * WinderDirection;
@@ -500,6 +516,7 @@ namespace PetFil.Wpf
             IsJogging = false;
             WinderDirection = 1;
             SendCommand("G90");
+            SendCommand("M120");
             SendCommand("M211 S1");
             OnWinderChanged?.Invoke(this, EventArgs.Empty);
         }

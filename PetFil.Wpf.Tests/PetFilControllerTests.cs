@@ -34,6 +34,19 @@ public class PetFilControllerPureHelperTests
     }
 
     [Fact]
+    public void BackwardsChunkIsAnchoredSoTheAxisNeverGoesNegative()
+    {
+        // 巻き取り方向（負）は移動量ぶんずらした位置から始めてちょうど 0 で終わる。
+        var move = PetFilController.WinderMoveMm(300, 1);
+        var anchor = PetFilController.WinderAnchorMm(move);
+        Assert.Equal(6.0, anchor, 3);
+        Assert.Equal(0.0, anchor + move, 3);
+
+        // 正方向は従来どおり 0 から。
+        Assert.Equal(0.0, PetFilController.WinderAnchorMm(PetFilController.WinderMoveMm(300, -1)), 3);
+    }
+
+    [Fact]
     public void ChunkLengthIsNeverNegative()
     {
         Assert.Equal(0.0, PetFilController.WinderChunkMm(-100));
