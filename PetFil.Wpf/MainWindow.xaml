@@ -1,7 +1,7 @@
 ﻿<Window x:Class="PetFil.Wpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PET フィラメントメーカー" Height="600" Width="900">
+        Title="PET フィラメントメーカー" Height="660" Width="900">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -71,6 +71,14 @@
                             LostMouseCapture="JogButton_LostMouseCapture" />
                 </StackPanel>
                 <TextBlock x:Name="WinderLabel">停止中　積算 0.0 mm</TextBlock>
+
+                <TextBlock FontWeight="Bold" Margin="0,12,0,6">運転条件</TextBlock>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <Button x:Name="SaveSettingsButton" Content="保存" Width="80" Click="SaveSettingsButton_Click" />
+                    <Button x:Name="LoadSettingsButton" Content="呼び出し" Width="80" Margin="6,0,0,0" Click="LoadSettingsButton_Click" />
+                    <TextBlock x:Name="SavedPresetLabel" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" />
+                </StackPanel>
+                <TextBlock Foreground="Gray" Margin="0,0,0,0">呼び出しは欄に入れるだけです。温度は「設定」で反映してください</TextBlock>
 
                 <TextBlock FontWeight="Bold" Margin="0,12,0,6">コマンド</TextBlock>
                 <StackPanel Orientation="Horizontal">

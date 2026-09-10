@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO.Ports;
 using System.Linq;
 using System.Windows;
@@ -19,6 +20,7 @@ namespace PetFil.Wpf
         private readonly Queue<double> targetTempHistory = new();
         private DispatcherTimer? graphTimer;
         private bool suppressSliderSync;
+        private AppSettings settings = new();
 
         public MainWindow()
         {
@@ -44,6 +46,45 @@ namespace PetFil.Wpf
 
             SpeedTextBox.Text = "300";
             SpeedSlider.Value = 300;
+
+            // 前回終了時の条件から始める。デザイナ上ではファイルを触らない。
+            if (!System.ComponentModel.DesignerProperties.GetIsInDesignMode(this))
+            {
+                settings = AppSettings.Load();
+                if (settings.Last is not null) ApplyPreset(settings.Last);
+                UpdateSavedPresetLabel();
+                Closed += MainWindow_Closed;
+            }
+        }
+
+        private void MainWindow_Closed(object? sender, EventArgs e)
+        {
+            // 次回の起動はここで書き出した値から始まる。保存ボタンの値とは別枠なので、
+            // 終了しても Saved は消えない。
+            settings.Last = CurrentPreset();
+            settings.Save();
+        }
+
+        /// <summary>いま欄に入っている運転条件。数値として読めない欄はスライダーの値で補う。</summary>
+        private PetFilPreset CurrentPreset() => new()
+        {
+            Temp = double.TryParse(TempTextBox.Text, out var t) ? t : TempSlider.Value,
+            Speed = double.TryParse(SpeedTextBox.Text, out var s) ? s : SpeedSlider.Value,
+        };
+
+        /// <summary>
+        /// 条件を入力欄に流し込む。TextChanged 経由でスライダーも追従する。プリンタへは
+        /// 送らない - 呼び出しただけで加熱が始まると危ないので、反映は「設定」に任せる。
+        /// </summary>
+        private void ApplyPreset(PetFilPreset preset)
+        {
+            TempTextBox.Text = preset.Temp.ToString("0", CultureInfo.InvariantCulture);
+            SpeedTextBox.Text = preset.Speed.ToString("0", CultureInfo.InvariantCulture);
+        }
+
+        private void UpdateSavedPresetLabel()
+        {
+            SavedPresetLabel.Text = settings.Saved is { } preset ? $"保存値 {preset}" : "保存値はまだありません";
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -268,6 +309,28 @@ namespace PetFil.Wpf
             SpeedTextBox.Text = e.NewValue.ToString("0");
             suppressSliderSync = false;
             if (controller is { IsWinding: true }) controller.WinderSpeed = e.NewValue;
+        }
+
+        private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var preset = CurrentPreset();
+            settings.Saved = preset;
+            if (settings.Save())
+                Log($"運転条件を保存しました: {preset}");
+            else
+                Log($"運転条件を保存できませんでした: {AppSettings.DefaultPath}");
+            UpdateSavedPresetLabel();
+        }
+
+        private void LoadSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (settings.Saved is not { } preset)
+            {
+                Log("保存された運転条件がありません。");
+                return;
+            }
+            ApplyPreset(preset);
+            Log($"運転条件を呼び出しました: {preset}");
         }
 
         private void SendCommandButton_Click(object sender, RoutedEventArgs e)
